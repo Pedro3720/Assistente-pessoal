@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { InputValor } from './InputValor'
 
 interface Props {
   open: boolean
@@ -73,17 +74,9 @@ export function FormularioTransacao({ open, onClose, onSave }: Props) {
             />
           </div>
           <div>
-            <label className="text-sm font-medium">Valor (R$)</label>
-            <input
-              type="number"
-              step="0.01"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              className="w-full mt-1 rounded-lg border px-3 py-2 text-sm bg-background"
-              placeholder="0,00"
-              required
-            />
-          </div>
+  <label className="text-sm font-medium">Valor</label>
+  <InputValor value={amount} onChange={setAmount} required />
+</div>
           <div className="flex gap-2">
             <button
               type="button"

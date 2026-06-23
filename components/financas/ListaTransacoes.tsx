@@ -5,7 +5,6 @@ interface Props {
   onDelete: (id: number) => void
   loading: boolean
   error: string | null
-  onRetry?: () => void
 }
 
 export function ListaTransacoes({ transactions, onDelete, loading, error }: Props) {

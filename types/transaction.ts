@@ -20,3 +20,17 @@ export interface TransactionFormData {
   bank_id?: number | null
   card_id?: number | null
 }
+export interface BankAccount {
+  id: number
+  name: string
+  balance: number
+  color: string
+}
+
+export interface CreditCard {
+  id: number
+  name: string
+  limit: number
+  closing_day: number
+  due_day: number
+}

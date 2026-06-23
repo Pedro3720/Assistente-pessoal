@@ -47,4 +47,5 @@ export const transactionService = {
       supabase.from('transactions').delete().eq('id', id)
     )
   }
+  
 }

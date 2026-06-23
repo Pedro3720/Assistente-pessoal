@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient"
 import {
   ChevronLeft, ChevronRight, CalendarDays, Plus, X, Smile,
   Search, Trash2, Edit3, Clock, Repeat, RefreshCw, CheckCircle2,
-  AlertCircle,
+  AlertCircle, List,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -51,14 +51,12 @@ const repeatOptions = [
 
 function gerarInstanciasRecorrentes(evento: CalendarEvent, year: number, month: number): CalendarEvent[] {
   if (!evento.repeat || evento.repeat === "none") return [evento]
-
   const instancias: CalendarEvent[] = []
   const dataInicio = new Date(evento.start_date)
   const diaEvento = dataInicio.getDate()
   const diaSemanaEvento = dataInicio.getDay()
   const horaInicio = dataInicio.toTimeString().slice(0, 8)
   const horaFim = evento.end_date ? new Date(evento.end_date).toTimeString().slice(0, 8) : null
-
   const primeiroDia = new Date(year, month, 1)
   const ultimoDia = new Date(year, month + 1, 0)
 
@@ -85,7 +83,6 @@ function gerarInstanciasRecorrentes(evento: CalendarEvent, year: number, month: 
       instancias.push({ ...evento, id: evento.id * 1000 + atual.getDate(), start_date: `${dataStr}T${horaInicio}`, end_date: horaFim ? `${dataStr}T${horaFim}` : null })
     }
   }
-
   return instancias
 }
 
@@ -100,6 +97,7 @@ export default function CalendarioPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
   const [viewingEvent, setViewingEvent] = useState<CalendarEvent | null>(null)
+  const [viewingDayEvents, setViewingDayEvents] = useState<{ dateStr: string; events: CalendarEvent[] } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle")
 
@@ -121,14 +119,7 @@ export default function CalendarioPage() {
   const loadEvents = useCallback(async () => {
     const firstDay = new Date(year, month, 1).toISOString().split("T")[0]
     const lastDay = new Date(year, month + 1, 0).toISOString().split("T")[0]
-
-    const { data } = await supabase
-      .from("events")
-      .select("*")
-      .gte("start_date", firstDay)
-      .lte("start_date", lastDay)
-      .order("start_date", { ascending: true })
-
+    const { data } = await supabase.from("events").select("*").gte("start_date", firstDay).lte("start_date", lastDay).order("start_date", { ascending: true })
     if (data) {
       const todos: CalendarEvent[] = []
       for (const evento of data) {
@@ -136,11 +127,7 @@ export default function CalendarioPage() {
         todos.push(...instancias)
       }
       const vistos = new Set<number>()
-      const dedup = todos.filter(e => {
-        if (vistos.has(e.id)) return false
-        vistos.add(e.id)
-        return true
-      })
+      const dedup = todos.filter(e => { if (vistos.has(e.id)) return false; vistos.add(e.id); return true })
       setEvents(dedup)
     }
   }, [month, year])
@@ -165,7 +152,7 @@ export default function CalendarioPage() {
       setFormRepeat(evento.repeat || "none")
       setFormSyncToGoogle(false)
     } else {
-      const date = new Date().toISOString().split("T")[0]
+      const date = selectedDate || new Date().toISOString().split("T")[0]
       setFormStartDate(date); setFormEndDate(date)
       setFormTitle(""); setFormCategory("Trabalho"); setFormStartTime("12:00"); setFormEndTime("13:00")
       setFormReminder("15 minutos"); setFormDescription(""); setFormColor("#3b82f6"); setFormRepeat("none")
@@ -177,18 +164,21 @@ export default function CalendarioPage() {
   function handleDayClick(day: number) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
     setSelectedDate(dateStr)
-    setEditingEvent(null)
-    setFormTitle(""); setFormCategory("Trabalho"); setFormStartDate(dateStr); setFormEndDate(dateStr)
-    setFormStartTime("12:00"); setFormEndTime("13:00"); setFormReminder("15 minutos")
-    setFormDescription(""); setFormColor("#3b82f6"); setFormRepeat("none"); setFormSyncToGoogle(true)
-    setShowModal(true)
+    const dayEvents = events.filter(e => e.start_date.startsWith(dateStr))
+
+    if (dayEvents.length > 0) {
+      // Mostra popup com todos os eventos do dia
+      setViewingDayEvents({ dateStr, events: dayEvents })
+    } else {
+      // Abre o formulário de criação
+      openModal()
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!formTitle.trim()) return
     setSaving(true)
-
     const start = `${formStartDate}T${formStartTime}:00`
     const end = `${formEndDate}T${formEndTime}:00`
     const repeatVal = formRepeat === "none" ? null : formRepeat
@@ -203,29 +193,15 @@ export default function CalendarioPage() {
         title: formTitle.trim(), description: formDescription.trim() || null,
         start_date: start, end_date: end, color: formColor, category: formCategory, repeat: repeatVal,
       }).select()
-
-      // Se marcou "Sincronizar com Google Agenda", chama API route
       if (formSyncToGoogle && data && data[0]) {
         try {
           await fetch("/api/calendar/sync-to-google", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              eventId: data[0].id,
-              title: formTitle.trim(),
-              description: formDescription.trim() || undefined,
-              startDate: start,
-              endDate: end,
-              color: formColor,
-              category: formCategory,
-            }),
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ eventId: data[0].id, title: formTitle.trim(), description: formDescription.trim() || undefined, startDate: start, endDate: end, color: formColor, category: formCategory }),
           })
-        } catch (err) {
-          console.error("Erro ao sincronizar com Google Agenda:", err)
-        }
+        } catch (err) { console.error("Erro ao sincronizar:", err) }
       }
     }
-
     setSaving(false); setShowModal(false); setEditingEvent(null)
     loadEvents()
   }
@@ -234,28 +210,18 @@ export default function CalendarioPage() {
     if (!confirm(`Excluir "${evento.title}"?`)) return
     setDeleting(true)
     await supabase.from("events").delete().eq("id", evento.id)
-    setDeleting(false); setViewingEvent(null)
+    setDeleting(false); setViewingEvent(null); setViewingDayEvents(null)
     loadEvents()
   }
 
   async function syncFromGoogle() {
-    setSyncing(true)
-    setSyncStatus("syncing")
+    setSyncing(true); setSyncStatus("syncing")
     try {
       await fetch("/api/calendar/sync-from-google", { method: "POST" })
-      setSyncStatus("success")
-      loadEvents()
+      setSyncStatus("success"); loadEvents()
       setTimeout(() => setSyncStatus("idle"), 3000)
-    } catch {
-      setSyncStatus("error")
-      setTimeout(() => setSyncStatus("idle"), 4000)
-    }
+    } catch { setSyncStatus("error"); setTimeout(() => setSyncStatus("idle"), 4000) }
     setSyncing(false)
-  }
-
-  function getEventsForDay(day: number) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-    return events.filter(e => e.start_date.startsWith(dateStr))
   }
 
   function formatDateHeader(dateStr: string) {
@@ -300,7 +266,6 @@ export default function CalendarioPage() {
           <p className="text-muted-foreground">Visualize e gerencie seus eventos</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Status Google Agenda */}
           {syncStatus === "success" && (
             <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-3 py-1.5 rounded-full">
               <CheckCircle2 className="h-3.5 w-3.5" /> Sincronizado
@@ -308,14 +273,13 @@ export default function CalendarioPage() {
           )}
           {syncStatus === "error" && (
             <span className="flex items-center gap-1 text-xs text-red-600 bg-red-50 px-3 py-1.5 rounded-full">
-              <AlertCircle className="h-3.5 w-3.5" /> Erro na sincronização
+              <AlertCircle className="h-3.5 w-3.5" /> Erro
             </span>
           )}
           <Button variant="outline" onClick={syncFromGoogle} disabled={syncing}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
-            Sincronizar
+            <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} /> Sincronizar
           </Button>
-          <Button onClick={() => openModal()}>
+          <Button onClick={() => { setSelectedDate(new Date().toISOString().split("T")[0]); openModal() }}>
             <Plus className="h-4 w-4 mr-2" /> Novo Evento
           </Button>
         </div>
@@ -346,7 +310,7 @@ export default function CalendarioPage() {
             {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`e-${i}`} className="min-h-[90px]" />)}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1
-              const dayEvents = getEventsForDay(day)
+              const dayEvents = events.filter(e => e.start_date.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`))
               const isHoje = day === hoje.getDate() && month === hoje.getMonth() && year === hoje.getFullYear()
               const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
               const isSelected = selectedDate === dateStr
@@ -370,7 +334,9 @@ export default function CalendarioPage() {
                         {e.title}
                       </div>
                     ))}
-                    {dayEvents.length > 2 && <span className="text-[10px] text-muted-foreground">+{dayEvents.length - 2} mais</span>}
+                    {dayEvents.length > 2 && (
+                      <span className="text-[10px] font-medium text-primary">Ver todos ({dayEvents.length})</span>
+                    )}
                   </div>
                 </button>
               )
@@ -385,23 +351,17 @@ export default function CalendarioPage() {
               <CalendarDays className="h-5 w-5 text-primary" />
               <h2 className="font-semibold">Por atividade</h2>
             </div>
-
-            {/* Filtro Categoria */}
             <div className="flex flex-wrap gap-1.5 mb-4 pb-4 border-b">
               <button onClick={() => setCategoryFilter(null)}
-                className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
-                  !categoryFilter ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:bg-accent/80"
-                }`}>Todas</button>
+                className={`text-xs px-2.5 py-1 rounded-full transition-colors ${!categoryFilter ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:bg-accent/80"}`}>Todas</button>
               {categories.map(cat => (
                 <button key={cat.label} onClick={() => setCategoryFilter(categoryFilter === cat.label ? null : cat.label)}
-                  className={`text-xs px-2.5 py-1 rounded-full transition-colors flex items-center gap-1 ${
-                    categoryFilter === cat.label ? "text-white" : "bg-accent text-muted-foreground hover:bg-accent/80"
-                  }`} style={categoryFilter === cat.label ? { backgroundColor: cat.color } : {}}>
+                  className={`text-xs px-2.5 py-1 rounded-full transition-colors flex items-center gap-1 ${categoryFilter === cat.label ? "text-white" : "bg-accent text-muted-foreground hover:bg-accent/80"}`}
+                  style={categoryFilter === cat.label ? { backgroundColor: cat.color } : {}}>
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cat.color }} />{cat.label}
                 </button>
               ))}
             </div>
-
             {sortedDates.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-sm text-muted-foreground">{searchQuery || categoryFilter ? "Nenhum evento encontrado." : "Nenhum evento neste mês."}</p>
@@ -418,7 +378,7 @@ export default function CalendarioPage() {
                           <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: e.color || "#3b82f6" }} />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium truncate flex items-center gap-1">
-                              {e.google_event_id && <span className="text-[10px] text-blue-500" title="Sincronizado com Google Agenda">◉</span>}
+                              {e.google_event_id && <span className="text-[10px] text-blue-500" title="Sincronizado">◉</span>}
                               {e.title}
                             </p>
                             <p className="text-[11px] text-muted-foreground">
@@ -437,7 +397,68 @@ export default function CalendarioPage() {
         </div>
       </div>
 
-      {/* Popup Visualizar Evento */}
+      {/* 📋 Popup - Todos os Eventos de um Dia */}
+      {viewingDayEvents && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setViewingDayEvents(null)} />
+          <div className="relative bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-zinc-700">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-white">
+                  {(() => {
+                    const d = new Date(viewingDayEvents.dateStr + "T12:00:00")
+                    return `${d.getDate()} ${monthNames[d.getMonth()]} ${d.getFullYear()}`
+                  })()}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { const ds = viewingDayEvents.dateStr; setViewingDayEvents(null); setSelectedDate(ds); openModal() }}
+                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                  <Plus className="h-3 w-3" /> Novo
+                </button>
+                <button onClick={() => setViewingDayEvents(null)} className="text-zinc-400 hover:text-white">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 space-y-2 max-h-[400px] overflow-y-auto">
+              {viewingDayEvents.events.length === 0 ? (
+                <p className="text-sm text-zinc-500 text-center py-8">Nenhum evento neste dia.</p>
+              ) : (
+                viewingDayEvents.events.map(e => (
+                  <button key={e.id} onClick={() => { setViewingDayEvents(null); setViewingEvent(e) }}
+                    className="w-full text-left rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 p-3.5 transition-colors">
+                    <div className="flex items-start gap-3">
+                      <div className="w-3 h-3 rounded-full mt-0.5 shrink-0" style={{ backgroundColor: e.color || "#3b82f6" }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-white">{e.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-zinc-400">
+                            {new Date(e.start_date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          {e.category && (
+                            <span className="text-[10px] text-zinc-400 bg-zinc-700 px-1.5 py-0.5 rounded">{e.category}</span>
+                          )}
+                          {e.repeat && e.repeat !== "none" && (
+                            <span className="text-[10px] text-zinc-500">🔄 {repeatOptions.find(r => r.value === e.repeat)?.label}</span>
+                          )}
+                        </div>
+                        {e.description && (
+                          <p className="text-xs text-zinc-500 mt-1 line-clamp-1">{e.description}</p>
+                        )}
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-zinc-600 mt-1 shrink-0" />
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📋 Popup Visualizar Evento */}
       {viewingEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setViewingEvent(null)} />
@@ -446,9 +467,7 @@ export default function CalendarioPage() {
               <button onClick={() => setViewingEvent(null)} className="text-zinc-400 hover:text-white"><X className="h-5 w-5" /></button>
               <div className="flex items-center gap-2">
                 {viewingEvent.google_event_id && (
-                  <span className="text-[10px] text-blue-400 flex items-center gap-1" title="Sincronizado com Google Agenda">
-                    <CheckCircle2 className="h-3 w-3" /> Google
-                  </span>
+                  <span className="text-[10px] text-blue-400 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Google</span>
                 )}
                 <button onClick={() => { const ev = viewingEvent; setViewingEvent(null); openModal(ev) }}
                   className="text-zinc-400 hover:text-blue-400 p-1" title="Editar"><Edit3 className="h-4 w-4" /></button>
@@ -490,7 +509,7 @@ export default function CalendarioPage() {
         </div>
       )}
 
-      {/* Modal Criar/Editar Evento */}
+      {/* 📝 Modal Criar/Editar Evento */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowModal(false)} />
@@ -507,23 +526,17 @@ export default function CalendarioPage() {
                 onChange={e => setFormTitle(e.target.value)}
                 className="w-full bg-transparent text-white text-xl font-semibold placeholder-zinc-500 outline-none border-b border-transparent focus:border-blue-500 pb-2 transition-colors" autoFocus />
               <button type="button" className="w-10 h-10 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400"><Smile className="h-5 w-5" /></button>
-
-              {/* Categoria */}
               <div className="space-y-1.5">
                 <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Categoria</label>
                 <div className="flex flex-wrap gap-2">
                   {categories.map(cat => (
                     <button key={cat.label} type="button" onClick={() => { setFormCategory(cat.label); setFormColor(cat.color) }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                        formCategory === cat.label ? "bg-zinc-700 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                      }`}>
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${formCategory === cat.label ? "bg-zinc-700 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />{cat.label}
                     </button>
                   ))}
                 </div>
               </div>
-
-              {/* Data/Hora */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Início</label>
@@ -544,33 +557,24 @@ export default function CalendarioPage() {
                   </div>
                 </div>
               </div>
-
-              {/* Repetir */}
               <div className="space-y-1.5">
                 <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Repetir</label>
                 <div className="flex flex-wrap gap-2">
                   {repeatOptions.map(opt => (
                     <button key={opt.value} type="button" onClick={() => setFormRepeat(opt.value)}
-                      className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                        formRepeat === opt.value ? "bg-zinc-700 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                      }`}>{opt.label}</button>
+                      className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${formRepeat === opt.value ? "bg-zinc-700 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>{opt.label}</button>
                   ))}
                 </div>
               </div>
-
-              {/* Google Agenda */}
               {!editingEvent && (
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
-                  <input type="checkbox" id="syncGoogle" checked={formSyncToGoogle}
-                    onChange={e => setFormSyncToGoogle(e.target.checked)}
+                  <input type="checkbox" id="syncGoogle" checked={formSyncToGoogle} onChange={e => setFormSyncToGoogle(e.target.checked)}
                     className="rounded border-zinc-600 bg-zinc-700 text-blue-600 focus:ring-blue-500" />
                   <label htmlFor="syncGoogle" className="text-sm text-zinc-300 cursor-pointer">
                     Sincronizar com <strong className="text-blue-400">Google Agenda</strong>
                   </label>
                 </div>
               )}
-
-              {/* Lembrete */}
               <div className="space-y-1.5">
                 <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Lembrete</label>
                 <select value={formReminder} onChange={e => setFormReminder(e.target.value)}
@@ -578,12 +582,9 @@ export default function CalendarioPage() {
                   {reminders.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-
-              {/* Descrição */}
               <div className="space-y-1.5">
                 <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Descrição</label>
-                <textarea placeholder="Adicione uma descrição..." value={formDescription}
-                  onChange={e => setFormDescription(e.target.value)} rows={3}
+                <textarea placeholder="Adicione uma descrição..." value={formDescription} onChange={e => setFormDescription(e.target.value)} rows={3}
                   className="w-full bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 border border-zinc-700 outline-none focus:border-blue-500 resize-none placeholder-zinc-500" />
               </div>
             </form>

@@ -47,7 +47,7 @@ export function useDashboard(): { resumo: Resumo } {
 
         const [tarefasResult, eventosHojeResult, treinosResult, incomeResult, expenseResult, proximosResult] =
           await Promise.all([
-            supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+            supabase.from('passwords').select('*', { count: 'exact', head: true }),
             supabase.from('events').select('*', { count: 'exact', head: true }).gte('start_date', `${hoje}T00:00:00`).lte('start_date', `${hoje}T23:59:59`),
             supabase.from('events').select('*', { count: 'exact', head: true }).eq('category', 'Saúde').gte('start_date', inicioMes),
             supabase.from('transactions').select('amount').eq('type', 'income').gte('date', inicioMes),

@@ -2,7 +2,7 @@
 
 import { useDashboard } from "@/hooks/useDashboard"
 import {
-  CheckSquare,
+  Shield,
   Calendar,
   Wallet,
   Dumbbell,
@@ -69,13 +69,13 @@ export default function Dashboard() {
           {/* CARDS DE RESUMO */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Tarefas Pendentes</p>
-                  <p className="text-3xl font-bold mt-1">{resumo.tarefasPendentes}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                  <CheckSquare className="h-6 w-6" />
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-sm font-medium text-muted-foreground">Senhas</p>
+      <p className="text-3xl font-bold mt-1">{resumo.tarefasPendentes}</p>
+    </div>
+    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <Shield className="h-6 w-6" />
                 </div>
               </div>
             </div>

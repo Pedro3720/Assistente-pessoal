@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
   Calendar,
-  CheckSquare,
+  Shield,
   Wallet,
   Dumbbell,
   Menu,
@@ -18,7 +18,7 @@ import { useState } from "react"
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/calendario", label: "Calendário", icon: Calendar },
-  { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
+  { href: "/senhas", label: "Senhas", icon: Shield },
   { href: "/financas", label: "Finanças", icon: Wallet },
   { href: "/treinos", label: "Treinos", icon: Dumbbell },
 ]

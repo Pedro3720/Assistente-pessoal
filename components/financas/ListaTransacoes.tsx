@@ -1,7 +1,8 @@
 import { Trash2, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import type { Transaction } from '@/types'
 
 interface Props {
-  transactions: any[]
+  transactions: Transaction[]
   onDelete: (id: number) => void
   loading: boolean
   error: string | null

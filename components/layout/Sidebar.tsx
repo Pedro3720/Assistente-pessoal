@@ -20,7 +20,7 @@ const navItems = [
   { href: "/calendario", label: "Calendário", icon: Calendar },
   { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
   { href: "/financas", label: "Finanças", icon: Wallet },
-  { href: "/treinos", label: "Treinos", icon: Dumbbell },,
+  { href: "/treinos", label: "Treinos", icon: Dumbbell },
 ]
 
 export function Sidebar() {

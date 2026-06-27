@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { transactionService } from '@/lib/services/transactionService'
+import type { Transaction } from '@/types'
 
 export function useTransactions() {
-  const [transactions, setTransactions] = useState<any[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

@@ -1,6 +1,7 @@
 import { Wallet, TrendingUp, TrendingDown } from 'lucide-react'
+import type { Transaction } from '@/types'
 
-export function ResumoFinanceiro({ transactions }: { transactions: any[] }) {
+export function ResumoFinanceiro({ transactions }: { transactions: Transaction[] }) {
   const receitas = transactions
     .filter(t => t.type === 'income')
     .reduce((acc, t) => acc + Number(t.amount), 0)

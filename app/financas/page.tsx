@@ -5,6 +5,7 @@ import { Plus, X, TrendingUp, TrendingDown, Wallet, CreditCard, Trash2, PiggyBan
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import { transactionService } from '@/lib/services/transactionService'
 import { supabase } from '@/lib/supabaseClient'
+import { InputValor } from '@/components/financas/InputValor'
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -53,6 +54,9 @@ export default function FinancasPage() {
   const [formCategory, setFormCategory] = useState(CATEGORIAS_DESPESA[0])
   const [formBankId, setFormBankId] = useState<number | null>(null)
   const [formCardId, setFormCardId] = useState<number | null>(null)
+  const [showNewBankInput, setShowNewBankInput] = useState(false)
+  const [newBankName, setNewBankName] = useState('')
+  const [newBankIcon, setNewBankIcon] = useState('🏦')
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
 
@@ -179,6 +183,29 @@ export default function FinancasPage() {
     setFormDate(tx.date ? tx.date.split('T')[0] : new Date().toISOString().split('T')[0])
     setShowModal(true)
   }, [])
+
+  const handleAddBank = useCallback(async () => {
+  if (!newBankName.trim()) return
+  try {
+    const { data, error } = await supabase
+      .from('banks')
+      .insert({ name: newBankName.trim(), icon: newBankIcon, balance: 0 })
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    if (data) {
+      setBanks((prev) => [...prev, data])
+      setFormBankId(data.id)
+    }
+    
+    setNewBankName('')
+    setShowNewBankInput(false)
+  } catch (err: any) {
+    setError(err?.message || 'Erro ao criar conta')
+  }
+}, [newBankName, newBankIcon])
 
   const parseAmount = (value: string) => {
     const cleaned = value.replace(/\./g, '').replace(',', '.')
@@ -377,11 +404,8 @@ export default function FinancasPage() {
                         </span>
                       </div>
                       <div className="space-y-1">
-                        <div className="h-1.5 w-full rounded-full bg-accent">
-                          <div
-                            className="h-1.5 rounded-full"
-                            style={{ width: `${usagePercent}%`, backgroundColor: card.color }}
-                          />
+                        <label className="text-sm font-medium text-zinc-300">Valor (R$)</label>
+            <InputValor value={formAmount} onChange={setFormAmount} required />
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{usagePercent.toFixed(0)}% utilizado</span>
@@ -614,44 +638,94 @@ export default function FinancasPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-300">Categoria</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {currentCategories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setFormCategory(cat)}
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                        formCategory === cat
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                      }`}
-                    >
-                      <span>{categoryIcons[cat]}</span>
-                      <span className="truncate">{cat}</span>
-                    </button>
+            <label className="text-sm font-medium text-zinc-300">Categoria</label>
+            <div className="grid grid-cols-2 gap-2">
+              {currentCategories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setFormCategory(cat)}
+                  className={`...`}
+                >
+                  <span>{categoryIcons[cat] || '📌'}</span>
+                  <span>{cat}</span>
+                </button>
+              ))}
                   ))}
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-300">Conta</label>
-                <div className="relative">
-                  <select
-                    value={formBankId ?? ''}
-                    onChange={(e) => setFormBankId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                        <div className="space-y-1">
+            <label className="text-sm font-medium text-zinc-300">Conta</label>
+
+            {showNewBankInput ? (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newBankIcon}
+                    onChange={(e) => setNewBankIcon(e.target.value)}
+                    className="w-12 rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-2 text-center text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="🏦"
+                    maxLength={2}
+                  />
+                  <input
+                    type="text"
+                    value={newBankName}
+                    onChange={(e) => setNewBankName(e.target.value)}
+                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Nome da conta"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddBank}
+                    disabled={!newBankName.trim()}
+                    className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <option value="">Selecione uma conta</option>
-                    {banks.map((bank) => (
-                      <option key={bank.id} value={bank.id}>
-                        {bank.icon} {bank.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                    Adicionar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewBankInput(false)
+                      setNewBankName('')
+                    }}
+                    className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800"
+                  >
+                    Cancelar
+                  </button>
                 </div>
               </div>
+            ) : (
+              <div className="relative">
+                <select
+                  value={formBankId ?? ''}
+                  onChange={(e) => setFormBankId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Selecione uma conta</option>
+                  {banks.map((bank) => (
+                    <option key={bank.id} value={bank.id}>
+                      {bank.icon} {bank.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+
+                <button
+                  type="button"
+                  onClick={() => setShowNewBankInput(true)}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-600 px-3 py-2 text-sm text-zinc-400 transition-colors hover:border-primary hover:text-primary"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nova conta
+                </button>
+              </div>
+            )}
+          </div>
 
               {formType === 'expense' && formBankId && availableCards.length > 0 && (
                 <div className="space-y-1">

@@ -262,8 +262,8 @@ export default function CalendarioPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Calendário</h1>
-          <p className="text-muted-foreground">Visualize e gerencie seus eventos</p>
+          <h1 className="text-4xl font-extrabold tracking-tighter leading-none" style={{ fontFamily: "var(--font-display)" }}>Calendário</h1>
+          <p className="text-sm text-muted-foreground mt-2">Visualize e gerencie seus eventos</p>
         </div>
         <div className="flex items-center gap-2">
           {syncStatus === "success" && (
@@ -328,7 +328,7 @@ export default function CalendarioPage() {
                   <div className="mt-1 space-y-0.5">
                     {dayEvents.slice(0, 2).map(e => (
                       <div key={e.id} onClick={ev => { ev.stopPropagation(); setViewingEvent(e) }}
-                        className="text-[10px] truncate rounded px-1 py-0.5 text-white cursor-pointer hover:opacity-80 flex items-center gap-1"
+                        className="text-[10px] truncate rounded px-1 py-0.5 text-foreground cursor-pointer hover:opacity-80 flex items-center gap-1"
                         style={{ backgroundColor: e.color || "#3b82f6" }}>
                         {e.google_event_id && <span className="text-[8px] opacity-70">◉</span>}
                         {e.title}
@@ -356,7 +356,7 @@ export default function CalendarioPage() {
                 className={`text-xs px-2.5 py-1 rounded-full transition-colors ${!categoryFilter ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:bg-accent/80"}`}>Todas</button>
               {categories.map(cat => (
                 <button key={cat.label} onClick={() => setCategoryFilter(categoryFilter === cat.label ? null : cat.label)}
-                  className={`text-xs px-2.5 py-1 rounded-full transition-colors flex items-center gap-1 ${categoryFilter === cat.label ? "text-white" : "bg-accent text-muted-foreground hover:bg-accent/80"}`}
+                  className={`text-xs px-2.5 py-1 rounded-full transition-colors flex items-center gap-1 ${categoryFilter === cat.label ? "text-foreground" : "bg-accent text-muted-foreground hover:bg-accent/80"}`}
                   style={categoryFilter === cat.label ? { backgroundColor: cat.color } : {}}>
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cat.color }} />{cat.label}
                 </button>
@@ -401,11 +401,11 @@ export default function CalendarioPage() {
       {viewingDayEvents && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setViewingDayEvents(null)} />
-          <div className="relative bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-zinc-700">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700">
+          <div className="relative bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-border">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div className="flex items-center gap-2">
                 <CalendarDays className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-foreground">
                   {(() => {
                     const d = new Date(viewingDayEvents.dateStr + "T12:00:00")
                     return `${d.getDate()} ${monthNames[d.getMonth()]} ${d.getFullYear()}`
@@ -414,38 +414,38 @@ export default function CalendarioPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => { const ds = viewingDayEvents.dateStr; setViewingDayEvents(null); setSelectedDate(ds); openModal() }}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                  className="text-xs bg-blue-600 hover:bg-blue-500 text-foreground px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
                   <Plus className="h-3 w-3" /> Novo
                 </button>
-                <button onClick={() => setViewingDayEvents(null)} className="text-zinc-400 hover:text-white">
+                <button onClick={() => setViewingDayEvents(null)} className="text-muted-foreground hover:text-foreground">
                   <X className="h-5 w-5" />
                 </button>
               </div>
             </div>
             <div className="p-4 space-y-2 max-h-[400px] overflow-y-auto">
               {viewingDayEvents.events.length === 0 ? (
-                <p className="text-sm text-zinc-500 text-center py-8">Nenhum evento neste dia.</p>
+                <p className="text-sm text-muted-foreground text-center py-8">Nenhum evento neste dia.</p>
               ) : (
                 viewingDayEvents.events.map(e => (
                   <button key={e.id} onClick={() => { setViewingDayEvents(null); setViewingEvent(e) }}
-                    className="w-full text-left rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 p-3.5 transition-colors">
+                    className="w-full text-left rounded-xl bg-muted hover:bg-accent border border-border p-3.5 transition-colors">
                     <div className="flex items-start gap-3">
                       <div className="w-3 h-3 rounded-full mt-0.5 shrink-0" style={{ backgroundColor: e.color || "#3b82f6" }} />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-white">{e.title}</p>
+                        <p className="text-sm font-medium text-foreground">{e.title}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-zinc-400">
+                          <span className="text-xs text-muted-foreground">
                             {new Date(e.start_date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                           </span>
                           {e.category && (
-                            <span className="text-[10px] text-zinc-400 bg-zinc-700 px-1.5 py-0.5 rounded">{e.category}</span>
+                            <span className="text-[10px] text-muted-foreground bg-zinc-700 px-1.5 py-0.5 rounded">{e.category}</span>
                           )}
                           {e.repeat && e.repeat !== "none" && (
-                            <span className="text-[10px] text-zinc-500">🔄 {repeatOptions.find(r => r.value === e.repeat)?.label}</span>
+                            <span className="text-[10px] text-muted-foreground">🔄 {repeatOptions.find(r => r.value === e.repeat)?.label}</span>
                           )}
                         </div>
                         {e.description && (
-                          <p className="text-xs text-zinc-500 mt-1 line-clamp-1">{e.description}</p>
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{e.description}</p>
                         )}
                       </div>
                       <ChevronRight className="h-4 w-4 text-zinc-600 mt-1 shrink-0" />
@@ -462,45 +462,45 @@ export default function CalendarioPage() {
       {viewingEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setViewingEvent(null)} />
-          <div className="relative bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden border border-zinc-700">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700">
-              <button onClick={() => setViewingEvent(null)} className="text-zinc-400 hover:text-white"><X className="h-5 w-5" /></button>
+          <div className="relative bg-popover rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden border border-border">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <button onClick={() => setViewingEvent(null)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
               <div className="flex items-center gap-2">
                 {viewingEvent.google_event_id && (
                   <span className="text-[10px] text-blue-400 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Google</span>
                 )}
                 <button onClick={() => { const ev = viewingEvent; setViewingEvent(null); openModal(ev) }}
-                  className="text-zinc-400 hover:text-blue-400 p-1" title="Editar"><Edit3 className="h-4 w-4" /></button>
+                  className="text-muted-foreground hover:text-blue-400 p-1" title="Editar"><Edit3 className="h-4 w-4" /></button>
                 <button onClick={() => handleDelete(viewingEvent)} disabled={deleting}
-                  className="text-zinc-400 hover:text-red-400 p-1" title="Excluir"><Trash2 className="h-4 w-4" /></button>
+                  className="text-muted-foreground hover:text-red-400 p-1" title="Excluir"><Trash2 className="h-4 w-4" /></button>
               </div>
             </div>
             <div className="p-5 space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: viewingEvent.color || "#3b82f6" }} />
-                <h2 className="text-lg font-semibold text-white">{viewingEvent.title}</h2>
+                <h2 className="text-lg font-semibold text-foreground">{viewingEvent.title}</h2>
               </div>
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-zinc-400">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="h-4 w-4" />
                   <span>{new Date(viewingEvent.start_date).toLocaleDateString("pt-BR")} às {new Date(viewingEvent.start_date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
                 {viewingEvent.category && (
-                  <div className="flex items-center gap-2 text-sm text-zinc-400">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: viewingEvent.color || "#3b82f6" }} />
                     <span>{viewingEvent.category}</span>
                   </div>
                 )}
                 {viewingEvent.repeat && viewingEvent.repeat !== "none" && (
-                  <div className="flex items-center gap-2 text-sm text-zinc-400">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Repeat className="h-4 w-4" />
                     <span>{repeatOptions.find(r => r.value === viewingEvent.repeat)?.label}</span>
                   </div>
                 )}
                 {viewingEvent.description && (
-                  <div className="pt-2 border-t border-zinc-700">
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-1">Descrição</p>
-                    <p className="text-sm text-zinc-300">{viewingEvent.description}</p>
+                  <div className="pt-2 border-t border-border">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Descrição</p>
+                    <p className="text-sm text-foreground">{viewingEvent.description}</p>
                   </div>
                 )}
               </div>
@@ -513,25 +513,25 @@ export default function CalendarioPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowModal(false)} />
-          <div className="relative bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-zinc-700">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700">
-              <button onClick={() => setShowModal(false)} className="text-zinc-400 hover:text-white"><X className="h-5 w-5" /></button>
+          <div className="relative bg-popover rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-border">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
               <button onClick={handleSave} disabled={saving || !formTitle.trim()}
-                className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-600 text-white px-5 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-600 text-foreground px-5 py-1.5 rounded-lg text-sm font-medium transition-colors">
                 {saving ? "Salvando..." : editingEvent ? "Atualizar" : "Salvar"}
               </button>
             </div>
             <form onSubmit={handleSave} className="p-5 space-y-5">
               <input type="text" placeholder="Nome do Evento/Tarefa" value={formTitle}
                 onChange={e => setFormTitle(e.target.value)}
-                className="w-full bg-transparent text-white text-xl font-semibold placeholder-zinc-500 outline-none border-b border-transparent focus:border-blue-500 pb-2 transition-colors" autoFocus />
-              <button type="button" className="w-10 h-10 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400"><Smile className="h-5 w-5" /></button>
+                className="w-full bg-transparent text-foreground text-xl font-semibold placeholder:text-muted-foreground outline-none border-b border-transparent focus:border-primary/60 pb-2 transition-colors" autoFocus />
+              <button type="button" className="w-10 h-10 flex items-center justify-center rounded-lg bg-muted hover:bg-accent text-muted-foreground"><Smile className="h-5 w-5" /></button>
               <div className="space-y-1.5">
-                <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Categoria</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Categoria</label>
                 <div className="flex flex-wrap gap-2">
                   {categories.map(cat => (
                     <button key={cat.label} type="button" onClick={() => { setFormCategory(cat.label); setFormColor(cat.color) }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${formCategory === cat.label ? "bg-zinc-700 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${formCategory === cat.label ? "bg-zinc-700 text-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}>
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />{cat.label}
                     </button>
                   ))}
@@ -539,53 +539,53 @@ export default function CalendarioPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Início</label>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Início</label>
                   <div className="space-y-2">
                     <input type="date" value={formStartDate} onChange={e => setFormStartDate(e.target.value)}
-                      className="w-full bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 border border-zinc-700 outline-none focus:border-blue-500" />
+                      className="w-full bg-muted text-foreground text-sm rounded-lg px-3 py-2 border border-border outline-none focus:border-primary/60" />
                     <input type="time" value={formStartTime} onChange={e => setFormStartTime(e.target.value)}
-                      className="w-full bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 border border-zinc-700 outline-none focus:border-blue-500" />
+                      className="w-full bg-muted text-foreground text-sm rounded-lg px-3 py-2 border border-border outline-none focus:border-primary/60" />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Fim</label>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Fim</label>
                   <div className="space-y-2">
                     <input type="date" value={formEndDate} onChange={e => setFormEndDate(e.target.value)}
-                      className="w-full bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 border border-zinc-700 outline-none focus:border-blue-500" />
+                      className="w-full bg-muted text-foreground text-sm rounded-lg px-3 py-2 border border-border outline-none focus:border-primary/60" />
                     <input type="time" value={formEndTime} onChange={e => setFormEndTime(e.target.value)}
-                      className="w-full bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 border border-zinc-700 outline-none focus:border-blue-500" />
+                      className="w-full bg-muted text-foreground text-sm rounded-lg px-3 py-2 border border-border outline-none focus:border-primary/60" />
                   </div>
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Repetir</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Repetir</label>
                 <div className="flex flex-wrap gap-2">
                   {repeatOptions.map(opt => (
                     <button key={opt.value} type="button" onClick={() => setFormRepeat(opt.value)}
-                      className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${formRepeat === opt.value ? "bg-zinc-700 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>{opt.label}</button>
+                      className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${formRepeat === opt.value ? "bg-zinc-700 text-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}>{opt.label}</button>
                   ))}
                 </div>
               </div>
               {!editingEvent && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
                   <input type="checkbox" id="syncGoogle" checked={formSyncToGoogle} onChange={e => setFormSyncToGoogle(e.target.checked)}
                     className="rounded border-zinc-600 bg-zinc-700 text-blue-600 focus:ring-blue-500" />
-                  <label htmlFor="syncGoogle" className="text-sm text-zinc-300 cursor-pointer">
+                  <label htmlFor="syncGoogle" className="text-sm text-foreground cursor-pointer">
                     Sincronizar com <strong className="text-blue-400">Google Agenda</strong>
                   </label>
                 </div>
               )}
               <div className="space-y-1.5">
-                <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Lembrete</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Lembrete</label>
                 <select value={formReminder} onChange={e => setFormReminder(e.target.value)}
-                  className="w-full bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 border border-zinc-700 outline-none focus:border-blue-500">
+                  className="w-full bg-muted text-foreground text-sm rounded-lg px-3 py-2 border border-border outline-none focus:border-primary/60">
                   {reminders.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-zinc-400 uppercase tracking-wider font-medium">Descrição</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Descrição</label>
                 <textarea placeholder="Adicione uma descrição..." value={formDescription} onChange={e => setFormDescription(e.target.value)} rows={3}
-                  className="w-full bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 border border-zinc-700 outline-none focus:border-blue-500 resize-none placeholder-zinc-500" />
+                  className="w-full bg-muted text-foreground text-sm rounded-lg px-3 py-2 border border-border outline-none focus:border-primary/60 resize-none placeholder:text-muted-foreground" />
               </div>
             </form>
           </div>

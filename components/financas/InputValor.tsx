@@ -10,15 +10,11 @@ interface Props {
 
 export function InputValor({ value, onChange, required }: Props) {
   function formatar(v: string) {
-    // Remove tudo que não é dígito
-    const numeros = v.replace(/\D/g, '')
+    const numeros = v.replace(/\D/g, '').replace(/^0+/, '')
     if (numeros.length === 0) return ''
 
-    // Converte para centavos (sempre 2 casas)
-    const inteiro = numeros.slice(0, -2).padStart(1, '0') || '0'
+    const inteiro = numeros.slice(0, -2) || '0'
     const centavos = numeros.slice(-2).padStart(2, '0')
-
-    // Adiciona ponto dos milhares
     const comMilhar = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 
     return `${comMilhar},${centavos}`

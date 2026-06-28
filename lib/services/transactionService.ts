@@ -46,6 +46,11 @@ export const transactionService = {
     return executeQuery(
       supabase.from('transactions').delete().eq('id', id)
     )
-  }
-  
+  },
+
+  bulkCreate(data: TransactionData[]): Promise<ServiceResult<any[]>> {
+    return executeQuery(
+      supabase.from('transactions').insert(data).select()
+    )
+  },
 }

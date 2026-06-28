@@ -12,7 +12,6 @@ import {
   Menu,
   X,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
 const navItems = [
@@ -29,62 +28,74 @@ export function Sidebar() {
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-4 left-4 z-50 md:hidden"
+      <button
+        className="fixed top-5 left-5 z-50 md:hidden h-9 w-9 rounded-full border border-border bg-background flex items-center justify-center"
         onClick={() => setOpen(!open)}
+        aria-label="Menu"
       >
-        {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </Button>
+        {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+      </button>
 
       {open && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/20 z-40 md:hidden backdrop-blur-sm"
           onClick={() => setOpen(false)}
         />
       )}
 
       <aside
         className={cn(
-          "fixed top-0 left-0 z-40 h-full w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out",
+          "fixed top-0 left-0 z-40 h-full w-56 bg-sidebar border-r border-sidebar-border transform transition-transform duration-300 ease-in-out flex flex-col",
           "md:translate-x-0 md:static md:z-auto",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex flex-col h-full p-4">
-          <div className="mb-8 pt-4">
-            <h1 className="text-xl font-bold text-primary">Assistente</h1>
-            <p className="text-sm text-muted-foreground">Agenda + Finanças</p>
-          </div>
+        {/* Brand */}
+        <div className="px-6 h-[72px] flex items-center border-b border-sidebar-border">
+          <span
+            className="text-lg font-bold tracking-tight text-sidebar-foreground"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Assistente
+          </span>
+        </div>
 
-          <nav className="space-y-1 flex-1">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href
+        {/* Nav */}
+        <nav className="flex-1 px-4 py-5 space-y-0.5">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setOpen(false)}
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-foreground font-medium"
+                    : "text-sidebar-foreground/45 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 font-normal"
+                )}
+              >
+                <Icon
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    "h-4 w-4 shrink-0 transition-all",
                     isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      ? "text-sidebar-foreground"
+                      : "text-sidebar-foreground/35 group-hover:text-sidebar-foreground/70"
                   )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.label}
-                </Link>
-              )
-            })}
-          </nav>
+                  strokeWidth={isActive ? 2 : 1.5}
+                />
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
 
-          <div className="text-xs text-muted-foreground pt-4 border-t">
-            <p>Assistente Pessoal v1.0</p>
-          </div>
+        {/* Footer */}
+        <div className="px-6 py-5 border-t border-sidebar-border">
+          <p className="text-xs text-sidebar-foreground/30">v1.0</p>
         </div>
       </aside>
     </>

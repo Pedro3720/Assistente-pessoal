@@ -1,19 +1,16 @@
 'use client'
-
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Plus, X, TrendingUp, TrendingDown, Wallet, CreditCard, Trash2, PiggyBank, ArrowUpRight, ArrowDownRight, Building2, Landmark, MoreHorizontal, Edit3, ChevronDown, Banknote } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import { transactionService } from '@/lib/services/transactionService'
 import { supabase } from '@/lib/supabaseClient'
 import { InputValor } from '@/components/financas/InputValor'
-
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(value)
 }
-
 const categoryIcons: Record<string, string> = {
   Moradia: '🏠',
   Alimentação: '🍽️',
@@ -27,16 +24,13 @@ const categoryIcons: Record<string, string> = {
   'Outras Receitas': '💰',
   Outros: '📌',
 }
-
 const CATEGORIAS_RECEITA = ['Salário', 'Freelance', 'Investimentos', 'Outras Receitas']
 const CATEGORIAS_DESPESA = ['Moradia', 'Alimentação', 'Transporte', 'Lazer', 'Saúde', 'Educação', 'Outros']
 const ALL_CATEGORIES = [...CATEGORIAS_DESPESA, ...CATEGORIAS_RECEITA]
-
 const normalizeData = (res: any) => {
   if (Array.isArray(res)) return res
   return res?.data || []
 }
-
 export default function FinancasPage() {
   const [transactions, setTransactions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,7 +41,6 @@ export default function FinancasPage() {
   const [cards, setCards] = useState<any[]>([])
   const [invoices, setInvoices] = useState<any[]>([])
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
-
   const [formDescription, setFormDescription] = useState('')
   const [formAmount, setFormAmount] = useState('')
   const [formType, setFormType] = useState<'income' | 'expense'>('expense')
@@ -59,12 +52,10 @@ export default function FinancasPage() {
   const [newBankIcon, setNewBankIcon] = useState('🏦')
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
-
   const refreshTransactions = useCallback(async () => {
     const res = await transactionService.getAll()
     setTransactions(normalizeData(res))
   }, [])
-
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -75,7 +66,6 @@ export default function FinancasPage() {
           supabase.from('credit_cards').select('*').order('name'),
           supabase.from('card_invoices').select('*').in('status', ['open', 'pending']),
         ])
-
         setTransactions(normalizeData(txRes))
         setBanks(banksRes.data || [])
         setCards(cardsRes.data || [])
@@ -86,10 +76,8 @@ export default function FinancasPage() {
         setLoading(false)
       }
     }
-
     loadData()
   }, [])
-
   useEffect(() => {
     if (formType === 'income' && !CATEGORIAS_RECEITA.includes(formCategory)) {
       setFormCategory(CATEGORIAS_RECEITA[0])
@@ -97,7 +85,6 @@ export default function FinancasPage() {
       setFormCategory(CATEGORIAS_DESPESA[0])
     }
   }, [formType, formCategory])
-
   useEffect(() => {
     if (formCardId) {
       const card = cards.find((c) => c.id === formCardId)
@@ -106,7 +93,6 @@ export default function FinancasPage() {
       }
     }
   }, [formBankId, formCardId, cards])
-
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setShowModal(false)
@@ -116,22 +102,17 @@ export default function FinancasPage() {
       return () => window.removeEventListener('keydown', handleEsc)
     }
   }, [showModal])
-
   const receitas = useMemo(() => {
     return transactions.filter((t) => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0)
   }, [transactions])
-
   const despesas = useMemo(() => {
     return transactions.filter((t) => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0)
   }, [transactions])
-
   const saldo = useMemo(() => receitas - despesas, [receitas, despesas])
-
   const filteredTx = useMemo(() => {
     if (filter === 'all') return transactions
     return transactions.filter((t) => t.type === filter)
   }, [transactions, filter])
-
   const totalExpenseByCategory = useMemo(() => {
     const expenses = transactions.filter((t) => t.type === 'expense')
     const grouped: Record<string, number> = {}
@@ -140,22 +121,17 @@ export default function FinancasPage() {
     })
     return Object.entries(grouped).sort((a, b) => b[1] - a[1])
   }, [transactions])
-
   const totalReceitas = receitas
   const totalDespesas = despesas
-
   const faturasAbertas = useMemo(() => {
     return invoices.filter((i) => i.status === 'open').reduce((acc, i) => acc + Number(i.amount), 0)
   }, [invoices])
-
   const totalMovimentacao = totalReceitas + totalDespesas
   const incomePercent = totalMovimentacao > 0 ? (totalReceitas / totalMovimentacao) * 100 : 0
   const expensePercent = totalMovimentacao > 0 ? (totalDespesas / totalMovimentacao) * 100 : 0
-
   const sortedFilteredTx = useMemo(() => {
     return [...filteredTx].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [filteredTx])
-
   const resetForm = useCallback(() => {
     setFormDescription('')
     setFormAmount('')
@@ -165,13 +141,11 @@ export default function FinancasPage() {
     setFormCardId(null)
     setFormDate(new Date().toISOString().split('T')[0])
   }, [])
-
   const openNewTransaction = useCallback(() => {
     resetForm()
     setEditingTx(null)
     setShowModal(true)
   }, [resetForm])
-
   const openEdit = useCallback((tx: any) => {
     setEditingTx(tx)
     setFormDescription(tx.description || '')
@@ -183,37 +157,31 @@ export default function FinancasPage() {
     setFormDate(tx.date ? tx.date.split('T')[0] : new Date().toISOString().split('T')[0])
     setShowModal(true)
   }, [])
-
   const handleAddBank = useCallback(async () => {
-  if (!newBankName.trim()) return
-  try {
-    const { data, error } = await supabase
-      .from('banks')
-      .insert({ name: newBankName.trim(), icon: newBankIcon, balance: 0 })
-      .select()
-      .single()
-    
-    if (error) throw error
-    
-    if (data) {
-      setBanks((prev) => [...prev, data])
-      setFormBankId(data.id)
+    if (!newBankName.trim()) return
+    try {
+      const { data, error } = await supabase
+        .from('banks')
+        .insert({ name: newBankName.trim(), icon: newBankIcon, balance: 0 })
+        .select()
+        .single()
+      if (error) throw error
+      if (data) {
+        setBanks((prev) => [...prev, data])
+        setFormBankId(data.id)
+      }
+      setNewBankName('')
+      setShowNewBankInput(false)
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao criar conta')
     }
-    
-    setNewBankName('')
-    setShowNewBankInput(false)
-  } catch (err: any) {
-    setError(err?.message || 'Erro ao criar conta')
-  }
-}, [newBankName, newBankIcon])
-
+  }, [newBankName, newBankIcon])
   const parseAmount = (value: string) => {
     const cleaned = value.replace(/\./g, '').replace(',', '.')
     return Number(cleaned)
   }
-
   const handleSave = useCallback(async () => {
-    if (!formDescription || !formAmount || !formBankId) return
+    if (!formDescription || !formAmount) return
     setSaving(true)
     try {
       const data = {
@@ -240,7 +208,6 @@ export default function FinancasPage() {
       setSaving(false)
     }
   }, [formDescription, formAmount, formType, formCategory, formBankId, formCardId, formDate, editingTx, resetForm, refreshTransactions])
-
   const handleDelete = useCallback(async (id: number) => {
     try {
       await transactionService.remove(id)
@@ -249,10 +216,8 @@ export default function FinancasPage() {
       setError(err?.message || 'Erro ao excluir transação')
     }
   }, [refreshTransactions])
-
   const currentCategories = formType === 'income' ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA
   const availableCards = cards.filter((c) => c.bank_id === formBankId)
-
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -261,7 +226,6 @@ export default function FinancasPage() {
             {error}
           </div>
         )}
-
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Finanças</h1>
@@ -275,7 +239,6 @@ export default function FinancasPage() {
             Nova Transação
           </button>
         </div>
-
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between">
@@ -290,7 +253,6 @@ export default function FinancasPage() {
               </div>
             </div>
           </div>
-
           <div className="rounded-xl border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -302,7 +264,6 @@ export default function FinancasPage() {
               </div>
             </div>
           </div>
-
           <div className="rounded-xl border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -314,7 +275,6 @@ export default function FinancasPage() {
               </div>
             </div>
           </div>
-
           <div className="rounded-xl border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -327,7 +287,6 @@ export default function FinancasPage() {
             </div>
           </div>
         </div>
-
         {banks.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {banks.map((bank) => (
@@ -339,7 +298,6 @@ export default function FinancasPage() {
             ))}
           </div>
         )}
-
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="rounded-xl border bg-card p-5 shadow-sm">
             <h3 className="font-semibold">Despesas por categoria</h3>
@@ -370,7 +328,6 @@ export default function FinancasPage() {
               )}
             </div>
           </div>
-
           <div className="rounded-xl border bg-card p-5 shadow-sm">
             <div className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-primary" />
@@ -385,7 +342,6 @@ export default function FinancasPage() {
                     .filter((t) => t.card_id === card.id && t.type === 'expense')
                     .reduce((acc, t) => acc + Number(t.amount), 0)
                   const usagePercent = card.limit ? Math.min((cardExpenses / card.limit) * 100, 100) : 0
-
                   return (
                     <div key={card.id} className="space-y-3">
                       <div className="flex items-center gap-3">
@@ -403,14 +359,9 @@ export default function FinancasPage() {
                           {formatCurrency(invoiceAmount)}
                         </span>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-zinc-300">Valor (R$)</label>
-            <InputValor value={formAmount} onChange={setFormAmount} required />
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{usagePercent.toFixed(0)}% utilizado</span>
-                          <span>Limite: {formatCurrency(card.limit || 0)}</span>
-                        </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{usagePercent.toFixed(0)}% utilizado</span>
+                        <span>Limite: {formatCurrency(card.limit || 0)}</span>
                       </div>
                       {cardInvoices.length > 0 && (
                         <div className="border-t pt-3 space-y-2">
@@ -430,7 +381,6 @@ export default function FinancasPage() {
               )}
             </div>
           </div>
-
           <div className="space-y-6">
             <div className="rounded-xl border bg-card p-5 shadow-sm">
               <h3 className="font-semibold">Receitas vs Despesas</h3>
@@ -482,7 +432,6 @@ export default function FinancasPage() {
                 </div>
               </div>
             </div>
-
             <div className="rounded-xl border bg-card p-5 shadow-sm">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="font-semibold">Transações</h3>
@@ -566,7 +515,6 @@ export default function FinancasPage() {
           </div>
         </div>
       </div>
-
       {showModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -588,7 +536,6 @@ export default function FinancasPage() {
               </h2>
               <div className="w-9" />
             </div>
-
             <div className="mt-6 space-y-4">
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -614,7 +561,6 @@ export default function FinancasPage() {
                   Receita
                 </button>
               </div>
-
               <div className="space-y-1">
                 <label className="text-sm font-medium text-zinc-300">Descrição</label>
                 <input
@@ -625,108 +571,99 @@ export default function FinancasPage() {
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
-
               <div className="space-y-1">
                 <label className="text-sm font-medium text-zinc-300">Valor (R$)</label>
-                <input
-                  type="text"
-                  value={formAmount}
-                  onChange={(e) => setFormAmount(e.target.value)}
-                  placeholder="0,00"
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-3 text-2xl font-semibold text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+                <InputValor value={formAmount} onChange={setFormAmount} required />
               </div>
-
               <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-300">Categoria</label>
-            <div className="grid grid-cols-2 gap-2">
-              {currentCategories.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setFormCategory(cat)}
-                  className={`...`}
-                >
-                  <span>{categoryIcons[cat] || '📌'}</span>
-                  <span>{cat}</span>
-                </button>
-              ))}
+                <label className="text-sm font-medium text-zinc-300">Categoria</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {currentCategories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setFormCategory(cat)}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        formCategory === cat
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                      }`}
+                    >
+                      <span>{categoryIcons[cat] || '📌'}</span>
+                      <span>{cat}</span>
+                    </button>
                   ))}
                 </div>
               </div>
-
-                        <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-300">Conta</label>
-
-            {showNewBankInput ? (
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newBankIcon}
-                    onChange={(e) => setNewBankIcon(e.target.value)}
-                    className="w-12 rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-2 text-center text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="🏦"
-                    maxLength={2}
-                  />
-                  <input
-                    type="text"
-                    value={newBankName}
-                    onChange={(e) => setNewBankName(e.target.value)}
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Nome da conta"
-                    autoFocus
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleAddBank}
-                    disabled={!newBankName.trim()}
-                    className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Adicionar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowNewBankInput(false)
-                      setNewBankName('')
-                    }}
-                    className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800"
-                  >
-                    Cancelar
-                  </button>
-                </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-zinc-300">Conta</label>
+                {showNewBankInput ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newBankIcon}
+                        onChange={(e) => setNewBankIcon(e.target.value)}
+                        className="w-12 rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-2 text-center text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="🏦"
+                        maxLength={2}
+                      />
+                      <input
+                        type="text"
+                        value={newBankName}
+                        onChange={(e) => setNewBankName(e.target.value)}
+                        className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Nome da conta"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAddBank}
+                        disabled={!newBankName.trim()}
+                        className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Adicionar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowNewBankInput(false)
+                          setNewBankName('')
+                        }}
+                        className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={formBankId ?? ''}
+                      onChange={(e) => setFormBankId(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Selecione uma conta</option>
+                      {banks.map((bank) => (
+                        <option key={bank.id} value={bank.id}>
+                          {bank.icon} {bank.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewBankInput(true)}
+                      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-600 px-3 py-2 text-sm text-zinc-400 transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Nova conta
+                    </button>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="relative">
-                <select
-                  value={formBankId ?? ''}
-                  onChange={(e) => setFormBankId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Selecione uma conta</option>
-                  {banks.map((bank) => (
-                    <option key={bank.id} value={bank.id}>
-                      {bank.icon} {bank.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-
-                <button
-                  type="button"
-                  onClick={() => setShowNewBankInput(true)}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-600 px-3 py-2 text-sm text-zinc-400 transition-colors hover:border-primary hover:text-primary"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nova conta
-                </button>
-              </div>
-            )}
-          </div>
-
               {formType === 'expense' && formBankId && availableCards.length > 0 && (
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-zinc-300">Cartão de crédito</label>
@@ -747,7 +684,6 @@ export default function FinancasPage() {
                   </div>
                 </div>
               )}
-
               <div className="space-y-1">
                 <label className="text-sm font-medium text-zinc-300">Data</label>
                 <input
@@ -757,11 +693,10 @@ export default function FinancasPage() {
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
-
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={saving || !formDescription || !formAmount || !formBankId}
+                disabled={saving || !formDescription || !formAmount}
                 className="mt-2 w-full rounded-lg bg-primary py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? 'Salvando...' : editingTx ? 'Salvar alterações' : 'Salvar transação'}

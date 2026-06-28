@@ -13,11 +13,14 @@ import { ImportModal } from '@/components/financas/ImportModal'
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
 
+export const CARD_PAYMENT_CAT = 'Pagamento Cartão'
+
 const DEFAULT_ICONS: Record<string, string> = {
   Moradia: '🏠', Alimentação: '🍽️', Transporte: '🚗', Lazer: '🎮',
   Saúde: '🏥', Educação: '📚', Salário: '💼', Freelance: '💻',
   Investimentos: '📈', 'Outras Receitas': '💰', Outros: '📌',
   Assinaturas: '📱', Faculdade: '🎓', Academia: '💪', Viagem: '✈️',
+  [CARD_PAYMENT_CAT]: '💳',
 }
 
 const DEFAULT_DESPESA = ['Moradia', 'Alimentação', 'Transporte', 'Lazer', 'Saúde', 'Educação', 'Outros']
@@ -78,6 +81,8 @@ export default function FinancasPage() {
   const [monthOffset, setMonthOffset] = useState(0)
   // import modal
   const [showImport, setShowImport] = useState(false)
+  // extrato (statement) view
+  const [extratoBank, setExtratoBank] = useState<number | null>(null)
 
   /* ── load custom categories from localStorage ── */
   useEffect(() => {
@@ -111,6 +116,11 @@ export default function FinancasPage() {
     })()
   }, [])
 
+  /* ── default extrato account once banks load ── */
+  useEffect(() => {
+    if (extratoBank === null && banks.length > 0) setExtratoBank(banks[0].id)
+  }, [banks]) // eslint-disable-line
+
   /* ── ESC key ── */
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -123,7 +133,7 @@ export default function FinancasPage() {
   }, [showModal, showCardModal])
 
   /* ── derived categories ── */
-  const allDespesa = useMemo(() => [...DEFAULT_DESPESA, ...customDespesa], [customDespesa])
+  const allDespesa = useMemo(() => [...DEFAULT_DESPESA, ...customDespesa, CARD_PAYMENT_CAT], [customDespesa])
   const allReceita = useMemo(() => [...DEFAULT_RECEITA, ...customReceita], [customReceita])
   const allIcons = useMemo(() => ({ ...DEFAULT_ICONS, ...customIcons }), [customIcons])
   const currentCats = formType === 'income' ? allReceita : allDespesa
@@ -131,14 +141,24 @@ export default function FinancasPage() {
   useEffect(() => {
     const cats = formType === 'income' ? allReceita : allDespesa
     if (!cats.includes(formCat)) setFormCat(cats[0])
+    if (formType === 'income') setFormCardId(null) // receita não tem cartão
   }, [formType]) // eslint-disable-line
 
   useEffect(() => {
+    if (formCat === CARD_PAYMENT_CAT) return // pagamento usa cartão de qualquer banco
     if (formCardId) {
       const card = cards.find(c => c.id === formCardId)
       if (!card || card.bank_id !== formBankId) setFormCardId(null)
     }
   }, [formBankId]) // eslint-disable-line
+
+  // ao sair da categoria de pagamento, limpa cartão que não pertence ao banco
+  useEffect(() => {
+    if (formCat !== CARD_PAYMENT_CAT && formCardId) {
+      const card = cards.find(c => c.id === formCardId)
+      if (!card || card.bank_id !== formBankId) setFormCardId(null)
+    }
+  }, [formCat]) // eslint-disable-line
 
   /* ── computed ── */
 
@@ -185,9 +205,26 @@ export default function FinancasPage() {
     }, {} as Record<number, number>),
   [banks, transactions])
 
+  /* fatura de cada cartão = base (card_invoices) + compras no cartão − pagamentos */
+  const cardInvoiceBalances = useMemo(() =>
+    cards.reduce((acc, card) => {
+      const base = invoices
+        .filter(i => i.card_id === card.id && i.status === 'open')
+        .reduce((s, i) => s + Number(i.amount), 0)
+      const compras = transactions
+        .filter(t => t.card_id === card.id && t.type === 'expense' && t.category !== CARD_PAYMENT_CAT)
+        .reduce((s, t) => s + Number(t.amount), 0)
+      const pagamentos = transactions
+        .filter(t => t.card_id === card.id && t.category === CARD_PAYMENT_CAT)
+        .reduce((s, t) => s + Number(t.amount), 0)
+      acc[card.id] = Math.max(base + compras - pagamentos, 0)
+      return acc
+    }, {} as Record<number, number>),
+  [cards, transactions, invoices])
+
   const faturasAbertas = useMemo(
-    () => invoices.filter(i => i.status === 'open').reduce((s, i) => s + Number(i.amount), 0),
-    [invoices]
+    () => cards.reduce((s, c) => s + (cardInvoiceBalances[c.id] ?? 0), 0),
+    [cards, cardInvoiceBalances]
   )
   const filteredTx = useMemo(
     () => filter === 'all' ? monthTx : monthTx.filter(t => t.type === filter),
@@ -209,6 +246,45 @@ export default function FinancasPage() {
   const incPct = totalMov > 0 ? (receitas / totalMov) * 100 : 0
   const expPct = totalMov > 0 ? (despesas / totalMov) * 100 : 0
   const availCards = cards.filter(c => c.bank_id === formBankId)
+
+  /* extrato bancário: lançamentos do mês com saldo corrente após cada um */
+  const extrato = useMemo(() => {
+    if (!extratoBank) return null
+    const bank = banks.find(b => b.id === extratoBank)
+    if (!bank) return null
+
+    const asc = transactions
+      .filter(t => t.bank_id === extratoBank && t.date)
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.id - b.id))
+
+    const monthStart = new Date(selectedYear, selectedMonth, 1)
+    const delta = (t: any) => t.type === 'income' ? Number(t.amount) : -Number(t.amount)
+
+    // saldo de abertura = saldo inicial + tudo antes do mês
+    let opening = Number(bank.balance || 0)
+    for (const t of asc) {
+      if (new Date(t.date + 'T00:00:00') < monthStart) opening += delta(t)
+    }
+
+    // saldo corrente dentro do mês
+    let running = opening
+    const withBalance: any[] = []
+    for (const t of asc) {
+      const d = new Date(t.date + 'T00:00:00')
+      if (d.getFullYear() === selectedYear && d.getMonth() === selectedMonth) {
+        running += delta(t)
+        withBalance.push({ ...t, balance: running })
+      }
+    }
+
+    // agrupa por dia (mais recente primeiro)
+    const byDay: Record<string, any[]> = {}
+    for (const t of withBalance) (byDay[t.date] ||= []).push(t)
+    const days = Object.keys(byDay).sort((a, b) => b.localeCompare(a))
+    for (const d of days) byDay[d].reverse() // dentro do dia, mais recente em cima
+
+    return { bank, opening, closing: running, days, byDay, count: withBalance.length }
+  }, [extratoBank, banks, transactions, selectedYear, selectedMonth])
 
   /* ── refresh helpers ── */
   const refreshTx = useCallback(async () => {
@@ -311,19 +387,28 @@ export default function FinancasPage() {
   }, [refreshCards])
 
   /* ── category handlers ── */
+  const addCategory = useCallback((rawName: string, icon: string, type: 'income' | 'expense') => {
+    const name = rawName.trim()
+    if (!name || name === CARD_PAYMENT_CAT) return
+    const icons = { ...customIcons, [name]: icon || '📌' }
+    setCustomIcons(icons); localStorage.setItem('cat_icons', JSON.stringify(icons))
+    if (type === 'expense') {
+      if (!DEFAULT_DESPESA.includes(name) && !customDespesa.includes(name)) {
+        const u = [...customDespesa, name]; setCustomDespesa(u); localStorage.setItem('cats_despesa', JSON.stringify(u))
+      }
+    } else {
+      if (!DEFAULT_RECEITA.includes(name) && !customReceita.includes(name)) {
+        const u = [...customReceita, name]; setCustomReceita(u); localStorage.setItem('cats_receita', JSON.stringify(u))
+      }
+    }
+  }, [customDespesa, customReceita, customIcons])
+
   const handleAddCat = useCallback(() => {
     const name = newCatName.trim()
     if (!name) return
-    const icon = newCatIcon || '📌'
-    const icons = { ...customIcons, [name]: icon }
-    setCustomIcons(icons); localStorage.setItem('cat_icons', JSON.stringify(icons))
-    if (formType === 'expense') {
-      const u = [...customDespesa, name]; setCustomDespesa(u); localStorage.setItem('cats_despesa', JSON.stringify(u))
-    } else {
-      const u = [...customReceita, name]; setCustomReceita(u); localStorage.setItem('cats_receita', JSON.stringify(u))
-    }
+    addCategory(name, newCatIcon, formType)
     setFormCat(name); setNewCatName(''); setNewCatIcon('📌'); setShowAddCat(false)
-  }, [newCatName, newCatIcon, formType, customDespesa, customReceita, customIcons])
+  }, [newCatName, newCatIcon, formType, addCategory])
 
   /* ── export CSV ── */
   const exportCSV = useCallback(() => {
@@ -367,7 +452,7 @@ export default function FinancasPage() {
   /* ── bulk import ── */
   const handleBulkImport = useCallback(async (rows: {
     description: string; amount: number; type: 'income' | 'expense'
-    category: string; bank_id: number | null; date: string
+    category: string; bank_id: number | null; card_id?: number | null; date: string
   }[]) => {
     const { data, error } = await transactionService.bulkCreate(rows) as any
     if (error) throw new Error(error.message || 'Erro ao salvar no banco de dados')
@@ -544,12 +629,8 @@ export default function FinancasPage() {
             </div>
             <div className="space-y-5">
               {cards.length > 0 ? cards.map(card => {
-                const cardInv = invoices.filter(i => i.card_id === card.id && i.status === 'open')
-                const invAmt = cardInv.reduce((s, i) => s + Number(i.amount), 0)
-                const cardExp = transactions
-                  .filter(t => t.card_id === card.id && t.type === 'expense')
-                  .reduce((s, t) => s + Number(t.amount), 0)
-                const usePct = card.limit ? Math.min((cardExp / card.limit) * 100, 100) : 0
+                const invAmt = cardInvoiceBalances[card.id] ?? 0
+                const usePct = card.limit ? Math.min((invAmt / card.limit) * 100, 100) : 0
                 return (
                   <div key={card.id} className="space-y-2 pb-4 border-b border-border last:border-0 last:pb-0">
                     <div className="flex items-center justify-between">
@@ -678,15 +759,105 @@ export default function FinancasPage() {
             </div>
           </div>
         </div>
+
+        {/* ════════════════ EXTRATO ════════════════ */}
+        <div className="rounded-xl border bg-card shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Extrato da Conta</h3>
+              <span className="text-sm text-muted-foreground capitalize">· {monthLabel}</span>
+            </div>
+            {banks.length > 0 && (
+              <div className="relative">
+                <select
+                  value={extratoBank ?? ''}
+                  onChange={e => setExtratoBank(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full appearance-none rounded-lg border border-border bg-muted px-3 py-2 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60 sm:w-56"
+                >
+                  {banks.map(b => <option key={b.id} value={b.id}>{b.icon} {b.name}</option>)}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+
+          {banks.length === 0 ? (
+            <p className="p-8 text-center text-sm text-muted-foreground">
+              Cadastre uma conta para visualizar o extrato.
+            </p>
+          ) : !extrato ? (
+            <p className="p-8 text-center text-sm text-muted-foreground">Selecione uma conta.</p>
+          ) : (
+            <div>
+              {/* saldo anterior */}
+              <div className="flex items-center justify-between bg-muted/40 px-5 py-2.5 text-sm">
+                <span className="text-muted-foreground">Saldo anterior</span>
+                <span className={`font-medium tabular-nums ${extrato.opening >= 0 ? 'text-foreground' : 'text-red-600'}`}>
+                  {fmt(extrato.opening)}
+                </span>
+              </div>
+
+              {extrato.count === 0 ? (
+                <p className="p-8 text-center text-sm text-muted-foreground">
+                  Nenhum lançamento nesta conta em {monthLabel}.
+                </p>
+              ) : (
+                extrato.days.map(day => (
+                  <div key={day}>
+                    <div className="sticky top-0 z-[1] border-y border-border bg-accent/40 px-5 py-1.5 text-xs font-semibold text-accent-foreground backdrop-blur">
+                      {new Date(day + 'T00:00:00').toLocaleDateString('pt-BR', {
+                        weekday: 'long', day: '2-digit', month: 'long',
+                      })}
+                    </div>
+                    {extrato.byDay[day].map((tx: any) => (
+                      <div
+                        key={tx.id}
+                        className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-2.5 transition-colors hover:bg-accent/20 last:border-0"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="text-base shrink-0">{allIcons[tx.category] || '📌'}</span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">{tx.description}</p>
+                            <p className="text-xs text-muted-foreground">{tx.category}</p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-6 text-right">
+                          <span className={`text-sm font-semibold tabular-nums ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                            {tx.type === 'income' ? '+' : '-'}{fmt(Number(tx.amount))}
+                          </span>
+                          <span className="w-28 text-xs tabular-nums text-muted-foreground">
+                            saldo {fmt(tx.balance)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+
+              {/* saldo final */}
+              <div className="flex items-center justify-between border-t-2 border-border bg-muted/40 px-5 py-3 text-sm">
+                <span className="font-semibold">Saldo final</span>
+                <span className={`text-base font-bold tabular-nums ${extrato.closing >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {fmt(extrato.closing)}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ════════════════ TRANSACTION MODAL ════════════════ */}
       {showImport && (
         <ImportModal
           banks={banks}
+          cards={cards}
           allDespesa={allDespesa}
           allReceita={allReceita}
           allIcons={allIcons}
+          cardPaymentCat={CARD_PAYMENT_CAT}
+          onAddCategory={addCategory}
           onClose={() => setShowImport(false)}
           onImport={handleBulkImport}
         />
@@ -866,8 +1037,41 @@ export default function FinancasPage() {
                 )}
               </div>
 
+              {/* pagamento de cartão — escolher qual fatura abater */}
+              {formType === 'expense' && formCat === CARD_PAYMENT_CAT && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-foreground">Cartão pago</label>
+                  {cards.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                      Cadastre um cartão para registrar o pagamento da fatura.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <select value={formCardId ?? ''} onChange={e => setFormCardId(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full appearance-none rounded-lg border border-border bg-muted px-3 py-2 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60">
+                          <option value="">Selecione o cartão</option>
+                          {cards.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} — fatura {fmt(cardInvoiceBalances[c.id] ?? 0)}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      </div>
+                      {formCardId && (
+                        <p className="text-xs text-muted-foreground">
+                          Fatura atual: <span className="font-medium text-amber-600">{fmt(cardInvoiceBalances[formCardId] ?? 0)}</span>
+                          {' '}· este pagamento abate o valor informado acima.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* credit card (expense + bank only) */}
-              {formType === 'expense' && formBankId && availCards.length > 0 && (
+              {formType === 'expense' && formCat !== CARD_PAYMENT_CAT && formBankId && availCards.length > 0 && (
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-foreground">Cartão de crédito</label>
                   <div className="relative">

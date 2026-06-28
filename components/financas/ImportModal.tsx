@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import {
   X, Upload, ChevronRight, Check, AlertCircle,
-  FileText, RefreshCw, ChevronDown,
+  RefreshCw, Plus,
 } from 'lucide-react'
 import { parseFile, ParsedTx } from '@/lib/parsers/ofxParser'
 
@@ -12,6 +12,13 @@ import { parseFile, ParsedTx } from '@/lib/parsers/ofxParser'
 type AutoRule = [keyword: string, category: string, type: 'income' | 'expense']
 
 const RULES: AutoRule[] = [
+  // Pagamento de cartão (fatura)
+  ['pagamento de fatura', 'Pagamento Cartão', 'expense'],
+  ['pagto fatura',        'Pagamento Cartão', 'expense'],
+  ['pagamento cartao',    'Pagamento Cartão', 'expense'],
+  ['pagto cartao',        'Pagamento Cartão', 'expense'],
+  ['pag cartao',          'Pagamento Cartão', 'expense'],
+  ['fatura cartao',       'Pagamento Cartão', 'expense'],
   // Alimentação
   ['supermercado', 'Alimentação', 'expense'],
   ['mercadao',     'Alimentação', 'expense'],
@@ -125,14 +132,18 @@ interface ImportRow extends ParsedTx {
   type: 'income' | 'expense'
   category: string
   bankId: number | null
+  cardId: number | null
   skip: boolean
 }
 
 interface Props {
   banks: { id: number; name: string; icon: string }[]
+  cards: { id: number; name: string; bank_id?: number | null }[]
   allDespesa: string[]
   allReceita: string[]
   allIcons: Record<string, string>
+  cardPaymentCat: string
+  onAddCategory: (name: string, icon: string, type: 'income' | 'expense') => void
   onClose: () => void
   onImport: (txs: {
     description: string
@@ -140,6 +151,7 @@ interface Props {
     type: 'income' | 'expense'
     category: string
     bank_id: number | null
+    card_id: number | null
     date: string
   }[]) => Promise<void>
 }
@@ -148,7 +160,10 @@ type Step = 'upload' | 'categorize' | 'done'
 
 // ── Componente ────────────────────────────────────────────────────────────
 
-export function ImportModal({ banks, allDespesa, allReceita, allIcons, onClose, onImport }: Props) {
+export function ImportModal({
+  banks, cards, allDespesa, allReceita, allIcons, cardPaymentCat,
+  onAddCategory, onClose, onImport,
+}: Props) {
   const [step, setStep]           = useState<Step>('upload')
   const [rows, setRows]           = useState<ImportRow[]>([])
   const [parseError, setParseError] = useState<string | null>(null)
@@ -189,7 +204,7 @@ export function ImportModal({ banks, allDespesa, allReceita, allIcons, onClose, 
       const defaultBankId = banks.length === 1 ? banks[0].id : null
       const importRows: ImportRow[] = parsed.map(tx => {
         const { type, category } = autoCateg(tx.description, tx.amount, allDespesa, allReceita)
-        return { ...tx, type, category, bankId: defaultBankId, skip: false }
+        return { ...tx, type, category, bankId: defaultBankId, cardId: null, skip: false }
       })
       setRows(importRows)
       setStep('categorize')
@@ -222,6 +237,7 @@ export function ImportModal({ banks, allDespesa, allReceita, allIcons, onClose, 
         type: r.type,
         category: r.category,
         bank_id: r.bankId,
+        card_id: r.category === cardPaymentCat ? r.cardId : null,
         date: r.date,
       })))
       setImportedCount(toImport.length)
@@ -231,7 +247,21 @@ export function ImportModal({ banks, allDespesa, allReceita, allIcons, onClose, 
     } finally {
       setImporting(false)
     }
-  }, [toImport, onImport])
+  }, [toImport, onImport, cardPaymentCat])
+
+  /* ── nova categoria inline ── */
+  const [showNewCat, setShowNewCat] = useState(false)
+  const [ncName, setNcName] = useState('')
+  const [ncIcon, setNcIcon] = useState('📌')
+  const [ncType, setNcType] = useState<'expense' | 'income'>('expense')
+
+  const handleAddNewCat = useCallback(() => {
+    const name = ncName.trim()
+    if (!name) return
+    onAddCategory(name, ncIcon, ncType)
+    // aplica imediatamente nas linhas selecionadas sem categoria definida ainda
+    setNcName(''); setNcIcon('📌'); setShowNewCat(false)
+  }, [ncName, ncIcon, ncType, onAddCategory])
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(n))
@@ -391,9 +421,58 @@ export function ImportModal({ banks, allDespesa, allReceita, allIcons, onClose, 
                   Aplicar
                 </button>
 
+                <button
+                  onClick={() => setShowNewCat(v => !v)}
+                  className="flex items-center gap-1 rounded-lg border border-dashed border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                >
+                  <Plus className="h-3 w-3" /> Nova categoria
+                </button>
+
                 <span className="ml-auto text-xs text-muted-foreground">
                   {toImport.length}/{rows.length} selecionadas
                 </span>
+
+                {/* form nova categoria */}
+                {showNewCat && (
+                  <div className="flex w-full items-center gap-2 rounded-lg border border-border bg-popover p-2">
+                    <input
+                      value={ncIcon}
+                      onChange={e => setNcIcon(e.target.value)}
+                      maxLength={2}
+                      placeholder="📌"
+                      className="w-10 rounded-md border border-border bg-muted px-1 py-1.5 text-center text-xs focus:outline-none focus:ring-1 focus:ring-primary/60"
+                    />
+                    <input
+                      value={ncName}
+                      onChange={e => setNcName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddNewCat()}
+                      autoFocus
+                      placeholder="Nome da categoria"
+                      className="flex-1 rounded-md border border-border bg-muted px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/60"
+                    />
+                    <select
+                      value={ncType}
+                      onChange={e => setNcType(e.target.value as any)}
+                      className="rounded-md border border-border bg-muted px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/60"
+                    >
+                      <option value="expense">Despesa</option>
+                      <option value="income">Receita</option>
+                    </select>
+                    <button
+                      onClick={handleAddNewCat}
+                      disabled={!ncName.trim()}
+                      className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                    >
+                      Criar
+                    </button>
+                    <button
+                      onClick={() => { setShowNewCat(false); setNcName('') }}
+                      className="rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <table className="w-full text-sm">
@@ -474,17 +553,33 @@ export function ImportModal({ banks, allDespesa, allReceita, allIcons, onClose, 
                         </select>
                       </td>
                       <td className="px-4 py-2.5">
-                        <select
-                          value={row.bankId ?? ''}
-                          disabled={row.skip}
-                          onChange={e => updateRow(row.id, { bankId: e.target.value ? Number(e.target.value) : null })}
-                          className="w-32 rounded-md border border-border bg-muted px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/60 disabled:cursor-not-allowed"
-                        >
-                          <option value="">Sem conta</option>
-                          {banks.map(b => (
-                            <option key={b.id} value={b.id}>{b.icon} {b.name}</option>
-                          ))}
-                        </select>
+                        <div className="flex flex-col gap-1">
+                          <select
+                            value={row.bankId ?? ''}
+                            disabled={row.skip}
+                            onChange={e => updateRow(row.id, { bankId: e.target.value ? Number(e.target.value) : null })}
+                            className="w-36 rounded-md border border-border bg-muted px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/60 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Sem conta</option>
+                            {banks.map(b => (
+                              <option key={b.id} value={b.id}>{b.icon} {b.name}</option>
+                            ))}
+                          </select>
+                          {row.category === cardPaymentCat && cards.length > 0 && (
+                            <select
+                              value={row.cardId ?? ''}
+                              disabled={row.skip}
+                              onChange={e => updateRow(row.id, { cardId: e.target.value ? Number(e.target.value) : null })}
+                              className="w-36 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-1 text-xs text-amber-800 focus:outline-none focus:ring-1 focus:ring-primary/60 disabled:cursor-not-allowed"
+                              title="Cartão cuja fatura será abatida"
+                            >
+                              <option value="">💳 Qual cartão?</option>
+                              {cards.map(c => (
+                                <option key={c.id} value={c.id}>💳 {c.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
